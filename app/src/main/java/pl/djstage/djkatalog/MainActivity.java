@@ -7,6 +7,9 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.view.View;
 import android.view.Gravity;
+import android.view.WindowInsets;
+import android.graphics.Insets;
+import android.os.Build;
 import android.view.inputmethod.EditorInfo;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -36,7 +39,22 @@ public class MainActivity extends Activity {
  private Button button(String title,Runnable fn){Button b=new Button(this);b.setAllCaps(false);b.setText(title);b.setOnClickListener(v->fn.run());return b;}
  private void screen(String title){
   if(browser!=null){browser.destroy();browser=null;}
-  root=column();root.setBackgroundColor(BG);setContentView(root);
+  root=column();root.setBackgroundColor(BG);
+  // Android 15+: adjust content insets for both 3-button and gesture navigation.
+  root.setOnApplyWindowInsetsListener((view, insets) -> {
+    int safeTop, safeBottom;
+    if (Build.VERSION.SDK_INT >= 30) {
+      Insets safe=insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+      safeTop=safe.top;safeBottom=safe.bottom;
+    } else {
+      safeTop=insets.getSystemWindowInsetTop();
+      safeBottom=insets.getSystemWindowInsetBottom();
+    }
+    view.setPadding(0,safeTop,0,safeBottom);
+    return insets;
+  });
+  setContentView(root);
+  root.requestApplyInsets();
   root.addView(label("DJ-KATALOG   •   "+title,21,INK));
   scrolling=new ScrollView(this); scrolling.setFillViewport(true); content=column();content.setPadding(dp(8),dp(6),dp(8),dp(12));scrolling.addView(content);
   root.addView(scrolling,new LinearLayout.LayoutParams(-1,0,1));
@@ -100,11 +118,24 @@ public class MainActivity extends Activity {
  }
  private void web(String url){
   profile=0;screen("PANEL DJ-A");
-  content.removeAllViews();browser=new WebView(this);browser.getSettings().setJavaScriptEnabled(true);browser.getSettings().setDomStorageEnabled(true);
+  // Panel replaces the scrollable catalog: no fixed-height WebView and no obstructive bottom app menu.
+  root.removeView(scrolling);
+  root.removeViewAt(root.getChildCount()-1);
+  root.addView(button("← Powrót do katalogu",()->catalog("")));
+  browser=new WebView(this);
+  browser.getSettings().setJavaScriptEnabled(true);
+  browser.getSettings().setDomStorageEnabled(true);
+  browser.getSettings().setAllowFileAccess(false);
+  browser.getSettings().setAllowContentAccess(false);
+  browser.getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+  if(Build.VERSION.SDK_INT>=26)browser.getSettings().setSafeBrowsingEnabled(true);
+  WebView.setWebContentsDebuggingEnabled(false);
   android.webkit.CookieManager.getInstance().setAcceptCookie(true);
+  android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(browser,false);
   browser.setWebChromeClient(new WebChromeClient());
   browser.setWebViewClient(new WebViewClient(){@Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest r){UriCheck check=new UriCheck(r.getUrl().getScheme(),r.getUrl().getHost());return !check.allowed();}});
-  content.addView(browser,new LinearLayout.LayoutParams(-1,dp(640)));browser.loadUrl(url);
+  root.addView(browser,new LinearLayout.LayoutParams(-1,0,1));
+  browser.loadUrl(url);
  }
  private static class UriCheck{
   private final String scheme,host;UriCheck(String s,String h){scheme=s;host=h;}
