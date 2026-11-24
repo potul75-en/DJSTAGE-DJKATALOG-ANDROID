@@ -1,0 +1,45 @@
+name: FINAL 110 - Android release build (unsigned)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        run: |
+          set -euo pipefail
+          SDK_MANAGER="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -n "$SDK_MANAGER"
+          yes | "$SDK_MANAGER" --licenses >/dev/null || true
+          "$SDK_MANAGER" "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build release
+        run: gradle --no-daemon :app:assembleRelease
+      - name: Export unsigned release and signing tools
+        run: |
+          set -euo pipefail
+          mkdir -p release/android-tools
+          cp app/build/outputs/apk/release/app-release-unsigned.apk release/DJKATALOG-Android-unsigned.apk
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" release/android-tools/
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" release/android-tools/
+          test -s release/DJKATALOG-Android-unsigned.apk
+          test -s release/android-tools/apksigner.jar
+          sha256sum release/DJKATALOG-Android-unsigned.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DJKATALOG-Android-RELEASE-unsigned-and-tools
+          path: release/**
+          if-no-files-found: error
+          retention-days: 14
