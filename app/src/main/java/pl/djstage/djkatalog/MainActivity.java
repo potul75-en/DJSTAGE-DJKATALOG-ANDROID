@@ -153,14 +153,37 @@ public class MainActivity extends Activity {
  private void calendarScreen(){
   profile=0;screen("KALENDARZ");
   TextView month=label("",24,INK); month.setGravity(Gravity.CENTER);
+  LinearLayout days=column();
   content.addView(month);
   TextView hint=label("Przesuń kalendarz palcem w lewo lub prawo, aby zmienić miesiąc.",13,MUTED);content.addView(hint);
   LinearLayout controls=new LinearLayout(this);content.addView(controls);
-  Runnable refresh=()->month.setText(new SimpleDateFormat("LLLL yyyy",new Locale("pl","PL")).format(selectedMonth.getTime()));
+  Runnable refresh=()->{
+   month.setText(new SimpleDateFormat("LLLL yyyy",new Locale("pl","PL")).format(selectedMonth.getTime()));
+   days.removeAllViews();
+   Calendar first=(Calendar)selectedMonth.clone();first.set(Calendar.DAY_OF_MONTH,1);
+   int offset=(first.get(Calendar.DAY_OF_WEEK)+5)%7;
+   int count=first.getActualMaximum(Calendar.DAY_OF_MONTH);
+   String[] weekdays={"Pn","Wt","Śr","Cz","Pt","So","Nd"};
+   LinearLayout headings=new LinearLayout(this);
+   for(String wd:weekdays){TextView t=label(wd,13,ACCENT);t.setGravity(Gravity.CENTER);headings.addView(t,new LinearLayout.LayoutParams(0,dp(42),1));}
+   days.addView(headings);
+   for(int week=0;week<6;week++){
+    LinearLayout row=new LinearLayout(this);
+    for(int dow=0;dow<7;dow++){
+     int day=week*7+dow-offset+1;
+     TextView cell=label(day>=1&&day<=count?String.valueOf(day):"",16,INK);
+     cell.setGravity(Gravity.CENTER);
+     if(day==Calendar.getInstance().get(Calendar.DAY_OF_MONTH)&&first.get(Calendar.MONTH)==Calendar.getInstance().get(Calendar.MONTH)&&first.get(Calendar.YEAR)==Calendar.getInstance().get(Calendar.YEAR))cell.setTextColor(ACCENT);
+     row.addView(cell,new LinearLayout.LayoutParams(0,dp(50),1));
+    }
+    days.addView(row);
+   }
+  };
   controls.addView(button("‹ Poprzedni",()->{selectedMonth.add(Calendar.MONTH,-1);refresh.run();}),new LinearLayout.LayoutParams(0,dp(56),1));
   controls.addView(button("Następny ›",()->{selectedMonth.add(Calendar.MONTH,1);refresh.run();}),new LinearLayout.LayoutParams(0,dp(56),1));
   TextView surface=label("‹                         KALENDARZ                         ›",17,ACCENT);
   surface.setGravity(Gravity.CENTER);surface.setMinHeight(dp(180));surface.setBackgroundColor(PANEL);content.addView(surface);
+  content.addView(days);
   GestureDetector gesture=new GestureDetector(this,new GestureDetector.SimpleOnGestureListener(){
    @Override public boolean onDown(MotionEvent e){return true;}
    @Override public boolean onFling(MotionEvent start,MotionEvent end,float vx,float vy){
@@ -172,6 +195,7 @@ public class MainActivity extends Activity {
    }
   });
   surface.setOnTouchListener((v,event)->gesture.onTouchEvent(event));
+  days.setOnTouchListener((v,event)->gesture.onTouchEvent(event));
   refresh.run();
  }
  private void settingsScreen(){
