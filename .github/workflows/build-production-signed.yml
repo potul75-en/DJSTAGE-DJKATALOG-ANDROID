@@ -1,9 +1,5 @@
 name: DJKATALOG Android - signed production APK
 on:
-  push:
-    branches: [feature/android-v3-0-0]
-    paths:
-      - '.github/workflows/build-production-signed.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -58,7 +54,7 @@ jobs:
           (cd output && sha256sum DJKATALOG-Android-v3.0.0.apk > DJKATALOG-Android-v3.0.0.apk.sha256)
       - name: Match previous production signing fingerprint
         env:
-          EXPECTED_SHA256: ${{ secrets.DJAPP_CERT_SHA256 }}
+          EXPECTED_SHA256: '15dfa97e74978c0b89448569f488ba3815babbed24cda71bc0acd220c22deda2'
         run: |
           set -euo pipefail
           test -n "$EXPECTED_SHA256"
