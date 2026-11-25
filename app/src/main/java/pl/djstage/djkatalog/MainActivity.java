@@ -19,7 +19,7 @@ import android.widget.TextView;
 import android.view.Gravity;
 
 public class MainActivity extends Activity {
-  private static final String HOME="https://djstage.pl/djkatalog/app/mobile_v3final.php";
+  private static final String HOME="https://djstage.pl/djkatalog/app/mobile_v310.php";
   private WebView web;
   private LinearLayout root;
   private final int ink=Color.rgb(190,218,229), accent=Color.rgb(65,237,203);
@@ -62,14 +62,17 @@ public class MainActivity extends Activity {
       }
       @Override public void onPageFinished(WebView view,String url){
         if(url==null||!url.startsWith("https://djstage.pl/djkatalog/"))return;
-        if(url.contains("mobile_v3final.php")){
+        if(url.contains("/djkatalog/app/mobile_v310.php")){
           view.evaluateJavascript("document.documentElement.classList.add('dj-native-nav');",null);
         }else{
-          // No global width overrides: only targeted profile/gallery/booking CSS on server.
-          view.evaluateJavascript(
-            "(function(){var h=document.querySelector('header');if(!h)return;" +
-            "var n=h.querySelector('nav');if(n){n.innerHTML='<a href=\\\"/djkatalog/?a=terms&djapp=1\\\">Regulamin</a> <a href=\\\"/djkatalog/?a=contact&djapp=1\\\">Kontakt</a>';n.style.cssText='display:flex;flex-wrap:wrap;gap:12px;font-size:12px';}" +
-            "var logo=h.querySelector('a.brand');if(logo){logo.removeAttribute('href');logo.style.pointerEvents='none';}})();",null);
+          // Android app-only styling; public WWW keeps its original presentation.
+          // Do NOT set main width globally: profile gallery & booking fit their parents.
+          view.evaluateJavascript("(function(){var d=document;d.documentElement.classList.add('dj-app-v310');"
+            +"var head=d.head||d.documentElement;"
+            +"if(!d.getElementById('djv310css')){var l=d.createElement('link');l.id='djv310css';l.rel='stylesheet';"
+            +"l.href='/djkatalog/app/dj_app_v310.css?v=310';head.appendChild(l);}"
+            +"if(!d.getElementById('djv310js')){var s=d.createElement('script');s.id='djv310js';"
+            +"s.src='/djkatalog/app/dj_app_v310.js?v=310';s.defer=true;head.appendChild(s);}})();",null);
         }
       }
     });

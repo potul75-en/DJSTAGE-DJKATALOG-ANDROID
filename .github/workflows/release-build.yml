@@ -1,7 +1,7 @@
 name: DJKATALOG Android - release build (unsigned)
 on:
   push:
-    branches: [main, feature/android-v3-0-0, feature/android-v3-0-1, feature/android-v3-0-2, release/android-v3-final]
+    branches: [main, feature/android-v3-0-0, feature/android-v3-0-1, feature/android-v3-0-2, release/android-v3-final, release/android-v3-1-0-final]
   workflow_dispatch:
 permissions:
   contents: read
