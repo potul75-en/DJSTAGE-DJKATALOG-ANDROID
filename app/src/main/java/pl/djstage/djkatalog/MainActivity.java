@@ -19,7 +19,7 @@ import android.widget.TextView;
 import android.view.Gravity;
 
 public class MainActivity extends Activity {
-  private static final String HOME="https://djstage.pl/djkatalog/app/mobile_v302.php";
+  private static final String HOME="https://djstage.pl/djkatalog/app/mobile_v3final.php";
   private WebView web;
   private LinearLayout root;
   private final int ink=Color.rgb(190,218,229), accent=Color.rgb(65,237,203);
@@ -61,32 +61,15 @@ public class MainActivity extends Activity {
           ||uri.getPath()==null||!uri.getPath().startsWith("/djkatalog/");
       }
       @Override public void onPageFinished(WebView view,String url){
-        if(!url.startsWith("https://djstage.pl/djkatalog/"))return;
-        if(url.contains("mobile_v302.php")){
-          view.evaluateJavascript("(function(){document.documentElement.classList.add('dj-native-nav');})();",null);
+        if(url==null||!url.startsWith("https://djstage.pl/djkatalog/"))return;
+        if(url.contains("mobile_v3final.php")){
+          view.evaluateJavascript("document.documentElement.classList.add('dj-native-nav');",null);
         }else{
-          // App-only presentation: no public website header navigation or external logo links.
-          // Existing portal functions remain intact, including login, CMS, bookings and calendar.
+          // No global width overrides: only targeted profile/gallery/booking CSS on server.
           view.evaluateJavascript(
-            "(function(){document.documentElement.classList.add('dj-native-app');"
-            +"var h=document.querySelector('header');"
-            +"if(h){var n=h.querySelector('nav');if(n){n.innerHTML='<a href=\"/djkatalog/?a=terms&djapp=1\">Regulamin</a> <a href=\"/djkatalog/?a=contact&djapp=1\">Kontakt</a>';}"
-            +"var logo=h.querySelector('a.brand');if(logo){logo.removeAttribute('href');logo.style.pointerEvents='none';logo.setAttribute('aria-label','DJKATALOG');}}"
-            +"var s=document.getElementById('djv302style');if(!s){s=document.createElement('style');s.id='djv302style';s.textContent="
-            +"'html,body{max-width:100%;overflow-x:hidden!important;background:#07101e!important;color:#edf8ff!important}'"
-            +"+'body main,body .dk-panel-body,body .dk-panel-tiles,body .dk-panel-layout,body .dk-panel-content{min-width:0!important;max-width:100%!important}'"
-            +"+'body main{width:100%!important;padding:14px!important;box-sizing:border-box!important}'"
-            +"+'body section,body form,body .dk-panel-tiles>*,body .dk-calendar{min-width:0!important;max-width:100%!important;box-sizing:border-box!important}'"
-            +"+'body input:not([type=checkbox]),body textarea,body select,body img,body video{max-width:100%!important;box-sizing:border-box!important}'"
-            +"+'body section,body .dk-panel-tiles>*,body .dk-panel-heading{background:#14283c!important;border:1px solid #23526a!important;border-radius:15px!important;color:#edf8ff!important;padding:12px!important}'"
-            +"+'body h1,body h2,body h3{color:#f5faff!important}'"
-            +"+'body a.cta,body button[type=submit]{background:#33e8c0!important;color:#062029!important;border-radius:12px!important}'"
-            +"+'body header{background:#091b2f!important;display:flex!important;flex-wrap:wrap!important;gap:5px;padding:8px 12px!important;align-items:center}'"
-            +"+'body header nav{display:flex!important;gap:12px!important;font-size:12px!important}'"
-            +"+'body header nav a{color:#6df7d8!important}'"
-            +"+'body .dk-panel-tiles{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr))!important;gap:10px!important}'"
-            +"+'body .dk-gallery,body .dk-gallery-track,body .dk-booking,body .dk-day{min-width:0;max-width:100%}'"
-            +";s.appendChild(document.head);}})();",null);
+            "(function(){var h=document.querySelector('header');if(!h)return;" +
+            "var n=h.querySelector('nav');if(n){n.innerHTML='<a href=\\\"/djkatalog/?a=terms&djapp=1\\\">Regulamin</a> <a href=\\\"/djkatalog/?a=contact&djapp=1\\\">Kontakt</a>';n.style.cssText='display:flex;flex-wrap:wrap;gap:12px;font-size:12px';}" +
+            "var logo=h.querySelector('a.brand');if(logo){logo.removeAttribute('href');logo.style.pointerEvents='none';}})();",null);
         }
       }
     });
@@ -122,8 +105,19 @@ public class MainActivity extends Activity {
     button.addView(symbol,new LinearLayout.LayoutParams(-1,dp(26)));
     button.addView(text,new LinearLayout.LayoutParams(-1,dp(20)));
     button.setContentDescription(title);
-    button.setOnClickListener(v->web.loadUrl(HOME+"#"+page));
+    button.setOnClickListener(v->navigateNative(page));
     nav.addView(button,new LinearLayout.LayoutParams(0,-1,1));
+  }
+  /** Native navigation calls the active SPA, rather than changing only an inert hash. */
+  private void navigateNative(String page){
+    if(!("home".equals(page)||"search".equals(page)||"favorites".equals(page)
+      ||"chat".equals(page)||"dashboard".equals(page)||"profile".equals(page)))return;
+    String current=web.getUrl();
+    if(current!=null&&current.startsWith(HOME)){
+      web.evaluateJavascript("(function(){return !!(window.DJKATALOG_NAV&&window.DJKATALOG_NAV.go('"+page+"'));})()",value->{
+        if(!"true".equals(value)&&web!=null)web.loadUrl(HOME+"#"+page);
+      });
+    }else{web.loadUrl(HOME+"#"+page);}
   }
   @Override public void onBackPressed(){
     if(web!=null&&web.canGoBack()){web.goBack();return;}
