@@ -1,0 +1,69 @@
+name: DJKATALOG iPhone Native - Compile Unsigned IPA
+on:
+  push:
+    branches:
+      - feature/ios-native-device-build
+    paths:
+      - 'ios-native/**'
+      - '.github/workflows/ios-native-device-build.yml'
+  workflow_dispatch:
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare Xcode
+        run: |
+          xcodebuild -version
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+      - name: Create DJKATALOG graphic launcher icon
+        run: |
+          mkdir -p ios-native/DJKATALOG/Assets.xcassets/AppIcon.appiconset
+          cat > ios-native/DJKATALOG/Assets.xcassets/AppIcon.appiconset/Contents.json <<'JSON'
+          {"images":[{"filename":"Icon-1024.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}
+          JSON
+          python3 - <<'PY'
+          import zlib,struct,math
+          size=1024
+          rows=[]
+          for y in range(size):
+              line=bytearray()
+              for x in range(size):
+                  nx=(x-size/2)/(size/2);ny=(y-size/2)/(size/2)
+                  d=math.hypot(nx,ny)
+                  r,g,b=(8,24,42)
+                  if d<0.75:
+                      r,g,b=(9,50,69)
+                      if 0.55<d<0.71: r,g,b=(50,230,209)
+                  bars=[.07,.18,.27,.42,.27,.18,.07]
+                  i=int((nx+.37)/.106)
+                  if 0<=i<len(bars) and abs(nx-(-.37+i*.106))<.036 and abs(ny)<bars[i]:
+                      r,g,b=(103,251,228)
+                  line.extend((r,g,b,255))
+              rows.append(b'\x00'+line)
+          def chunk(tag,data):return struct.pack('!I',len(data))+tag+data+struct.pack('!I',zlib.crc32(tag+data)&0xffffffff)
+          image=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('!IIBBBBB',size,size,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(b''.join(rows),9))+chunk(b'IEND',b'')
+          with open('ios-native/DJKATALOG/Assets.xcassets/AppIcon.appiconset/Icon-1024.png','wb') as f:f.write(image)
+          PY
+      - name: Generate Xcode project
+        run: |
+          cd ios-native
+          xcodegen generate --spec project.yml
+      - name: Compile iPhone device release (without signing)
+        run: |
+          xcodebuild -project ios-native/DJKATALOG.xcodeproj -scheme DJKATALOG -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath ios-native/Build CODE_SIGNING_ALLOWED=NO build
+      - name: Export unsigned IPA for local Apple-ID signing
+        run: |
+          mkdir -p ios-native/unsigned/Payload
+          cp -R ios-native/Build/Build/Products/Release-iphoneos/DJKATALOG.app ios-native/unsigned/Payload/
+          ( cd ios-native/unsigned && zip -qry ../DJKATALOG-iPhone-3.1.0-UNSIGNED.ipa Payload )
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' ios-native/unsigned/Payload/DJKATALOG.app/Info.plist
+          shasum -a 256 ios-native/DJKATALOG-iPhone-3.1.0-UNSIGNED.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DJKATALOG-iPhone-3.1.0-UNSIGNED-NOT-QR-INSTALLABLE
+          path: |
+            ios-native/DJKATALOG-iPhone-3.1.0-UNSIGNED.ipa
+            ios-native/project.yml
+          retention-days: 30
