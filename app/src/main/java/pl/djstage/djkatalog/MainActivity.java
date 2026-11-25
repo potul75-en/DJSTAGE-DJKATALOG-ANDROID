@@ -7,6 +7,11 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.view.View;
 import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.GestureDetector;
+import java.util.Calendar;
+import java.util.Locale;
+import java.text.SimpleDateFormat;
 import android.view.WindowInsets;
 import android.graphics.Insets;
 import android.os.Build;
@@ -32,8 +37,10 @@ public class MainActivity extends Activity {
  private ScrollView scrolling;
  private WebView browser;
  private int profile=0;
+ private Calendar selectedMonth=Calendar.getInstance();
+ private boolean chatAfterLogout=false;
  private int dp(int value){return (int)(getResources().getDisplayMetrics().density*value+.5f);}
- @Override public void onCreate(Bundle state){super.onCreate(state); getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG); catalog("");}
+ @Override public void onCreate(Bundle state){super.onCreate(state); getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG); chatAfterLogout=getPreferences(MODE_PRIVATE).getBoolean("chat_after_logout",false); catalog("");}
  private TextView label(String txt,int sp,int color){TextView v=new TextView(this);v.setText(txt);v.setTextColor(color);v.setTextSize(sp);v.setPadding(dp(10),dp(10),dp(10),dp(10));return v;}
  private LinearLayout column(){LinearLayout x=new LinearLayout(this);x.setOrientation(1);return x;}
  private Button button(String title,Runnable fn){Button b=new Button(this);b.setAllCaps(false);b.setText(title);b.setOnClickListener(v->fn.run());return b;}
@@ -58,9 +65,13 @@ public class MainActivity extends Activity {
   root.addView(label("DJ-KATALOG   •   "+title,21,INK));
   scrolling=new ScrollView(this); scrolling.setFillViewport(true); content=column();content.setPadding(dp(8),dp(6),dp(8),dp(12));scrolling.addView(content);
   root.addView(scrolling,new LinearLayout.LayoutParams(-1,0,1));
-  LinearLayout menu=new LinearLayout(this); root.addView(menu);
-  Button a=button("DJ-e",()->catalog("")); Button b=button("Szukaj",()->catalog(""));Button c=button("Panel DJ-a",()->web(BASE+"/djkatalog/?a=panel"));
-  menu.addView(a,new LinearLayout.LayoutParams(0,dp(56),1));menu.addView(b,new LinearLayout.LayoutParams(0,dp(56),1));menu.addView(c,new LinearLayout.LayoutParams(0,dp(56),1));
+  // System bar insets are applied to root padding above. Navigation remains inside that safe area.
+  LinearLayout menu=new LinearLayout(this); menu.setBackgroundColor(PANEL);root.addView(menu,new LinearLayout.LayoutParams(-1,dp(60)));
+  menu.addView(button("Start",()->catalog("")),new LinearLayout.LayoutParams(0,dp(60),1));
+  menu.addView(button("Szukaj",()->catalog("")),new LinearLayout.LayoutParams(0,dp(60),1));
+  menu.addView(button("Kalendarz",this::calendarScreen),new LinearLayout.LayoutParams(0,dp(60),1));
+  menu.addView(button("Czat",this::chatScreen),new LinearLayout.LayoutParams(0,dp(60),1));
+  menu.addView(button("Profil",this::settingsScreen),new LinearLayout.LayoutParams(0,dp(60),1));
  }
  private JSONObject api(String query)throws Exception {
   URL url=new URL(BASE+"/djkatalog/app/api.php?"+query);
@@ -136,6 +147,55 @@ public class MainActivity extends Activity {
   browser.setWebViewClient(new WebViewClient(){@Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest r){UriCheck check=new UriCheck(r.getUrl().getScheme(),r.getUrl().getHost());return !check.allowed();}});
   root.addView(browser,new LinearLayout.LayoutParams(-1,0,1));
   browser.loadUrl(url);
+ }
+
+ // Mobile calendar. Swipe LEFT for next month, RIGHT for previous.
+ private void calendarScreen(){
+  profile=0;screen("KALENDARZ");
+  TextView month=label("",24,INK); month.setGravity(Gravity.CENTER);
+  content.addView(month);
+  TextView hint=label("Przesuń kalendarz palcem w lewo lub prawo, aby zmienić miesiąc.",13,MUTED);content.addView(hint);
+  LinearLayout controls=new LinearLayout(this);content.addView(controls);
+  Runnable refresh=()->month.setText(new SimpleDateFormat("LLLL yyyy",new Locale("pl","PL")).format(selectedMonth.getTime()));
+  controls.addView(button("‹ Poprzedni",()->{selectedMonth.add(Calendar.MONTH,-1);refresh.run();}),new LinearLayout.LayoutParams(0,dp(56),1));
+  controls.addView(button("Następny ›",()->{selectedMonth.add(Calendar.MONTH,1);refresh.run();}),new LinearLayout.LayoutParams(0,dp(56),1));
+  TextView surface=label("‹                         KALENDARZ                         ›",17,ACCENT);
+  surface.setGravity(Gravity.CENTER);surface.setMinHeight(dp(180));surface.setBackgroundColor(PANEL);content.addView(surface);
+  GestureDetector gesture=new GestureDetector(this,new GestureDetector.SimpleOnGestureListener(){
+   @Override public boolean onDown(MotionEvent e){return true;}
+   @Override public boolean onFling(MotionEvent start,MotionEvent end,float vx,float vy){
+    if(start==null)return false;
+    float dx=end.getX()-start.getX(), dy=end.getY()-start.getY();
+    float density=getResources().getDisplayMetrics().density;
+    if(Math.abs(dx)<60*density||Math.abs(dx)<Math.abs(dy)*1.3f||Math.abs(vx)<100*density)return false;
+    selectedMonth.add(Calendar.MONTH,dx<0?1:-1);refresh.run();return true;
+   }
+  });
+  surface.setOnTouchListener((v,event)->gesture.onTouchEvent(event));
+  refresh.run();
+ }
+ private void settingsScreen(){
+  profile=0;screen("PROFIL / USTAWIENIA");
+  content.addView(button("Panel DJ-a",()->web(BASE+"/djkatalog/?a=panel")));
+  content.addView(label("Ustawienia czatu",20,ACCENT));
+  Switch option=new Switch(this);
+  option.setText("Czat dostępny po wylogowaniu");
+  option.setTextColor(INK);option.setPadding(dp(10),dp(14),dp(10),dp(14));
+  option.setChecked(chatAfterLogout);
+  option.setOnCheckedChangeListener((v,checked)->{
+   // This preference alone MUST NOT enable remote chat access.
+   // A scoped backend-issued chat-only session is required before shipping this feature.
+   chatAfterLogout=checked;
+   getPreferences(MODE_PRIVATE).edit().putBoolean("chat_after_logout",checked).apply();
+  });
+  content.addView(option);
+  content.addView(label("OFF: wylogowanie kończy czat. ON: dostęp po wylogowaniu wymaga osobnej, bezpiecznej sesji czatu na serwerze. Połączenie serwerowe nie jest jeszcze aktywne.",14,MUTED));
+ }
+ private void chatScreen(){
+  profile=0;screen("CZAT DJ");
+  content.addView(label("Czat zarejestrowanych DJ-ów",22,INK));
+  content.addView(label("Ta funkcja wymaga uruchomienia autoryzowanego API czatu DJSTAGE. W tej wersji nie wyświetlamy fikcyjnych rozmów ani statusów Aktywny.",15,MUTED));
+  content.addView(button("Ustawienia czatu",this::settingsScreen));
  }
  private static class UriCheck{
   private final String scheme,host;UriCheck(String s,String h){scheme=s;host=h;}
