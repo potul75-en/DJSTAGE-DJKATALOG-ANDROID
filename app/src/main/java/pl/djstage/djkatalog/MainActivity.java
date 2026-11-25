@@ -48,7 +48,7 @@ public class MainActivity extends Activity {
   Button start=new Button(this);start.setText("⌂ START");start.setAllCaps(false);start.setTextSize(12);start.setTextColor(0xffb1fbe8);start.setOnClickListener(v->web.loadUrl(HOME));
   Button panel=new Button(this);panel.setText("▣ PANEL DJ");panel.setAllCaps(false);panel.setTextSize(12);panel.setTextColor(0xffb1fbe8);panel.setOnClickListener(v->web.loadUrl(HOME+"#dashboard"));
   Button more=new Button(this);more.setText("⋮");more.setOnClickListener(v->{PopupMenu popup=new PopupMenu(this,v);popup.getMenu().add(0,1,0,"Regulamin");popup.getMenu().add(0,2,1,"Kontakt");popup.setOnMenuItemClickListener(item->{web.loadUrl("https://djstage.pl/djkatalog/?a="+(item.getItemId()==1?"terms":"contact")+"&djapp=1");return true;});popup.show();});
-  bar.addView(start,new LinearLayout.LayoutParams(0,54,1));bar.addView(panel,new LinearLayout.LayoutParams(0,54,1));bar.addView(more,new LinearLayout.LayoutParams(50,54));
+  bar.addView(start,new LinearLayout.LayoutParams(0,-1,1));bar.addView(panel,new LinearLayout.LayoutParams(0,54,1));bar.addView(more,new LinearLayout.LayoutParams(50,-1));
   root.addView(bar,new LinearLayout.LayoutParams(-1,(int)(56*getResources().getDisplayMetrics().density)));
   root.addView(web,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);root.requestApplyInsets();web.loadUrl(HOME);
  }
