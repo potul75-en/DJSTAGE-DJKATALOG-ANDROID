@@ -26,10 +26,10 @@ jobs:
           "$SDK_MANAGER" "platforms;android-35" "build-tools;35.0.0"
       - name: Validate signing secrets
         env:
-          KEYSTORE_B64: ${{ secrets.DJKATALOG_KEYSTORE_BASE64 }}
-          KEYSTORE_ALIAS: ${{ secrets.DJKATALOG_KEY_ALIAS }}
-          KEYSTORE_PASS: ${{ secrets.DJKATALOG_KEYSTORE_PASSWORD }}
-          KEY_PASS: ${{ secrets.DJKATALOG_KEY_PASSWORD }}
+          KEYSTORE_B64: ${{ secrets.DJAPP_KEYSTORE_BASE64 }}
+          KEYSTORE_ALIAS: ${{ secrets.DJAPP_KEY_ALIAS }}
+          KEYSTORE_PASS: ${{ secrets.DJAPP_STORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.DJAPP_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           test -n "$KEYSTORE_B64" && test -n "$KEYSTORE_ALIAS"
@@ -40,9 +40,9 @@ jobs:
         run: gradle --no-daemon --stacktrace :app:assembleRelease
       - name: Align, sign, verify and export APK
         env:
-          KEYSTORE_ALIAS: ${{ secrets.DJKATALOG_KEY_ALIAS }}
-          KEYSTORE_PASS: ${{ secrets.DJKATALOG_KEYSTORE_PASSWORD }}
-          KEY_PASS: ${{ secrets.DJKATALOG_KEY_PASSWORD }}
+          KEYSTORE_ALIAS: ${{ secrets.DJAPP_KEY_ALIAS }}
+          KEYSTORE_PASS: ${{ secrets.DJAPP_STORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.DJAPP_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           mkdir -p output
@@ -52,6 +52,15 @@ jobs:
           "$SDK/apksigner" verify --verbose --print-certs output/DJKATALOG-Android-v3.0.0.apk
           "$SDK/aapt" dump badging output/DJKATALOG-Android-v3.0.0.apk | grep "package: name='pl.djstage.djkatalog'"
           (cd output && sha256sum DJKATALOG-Android-v3.0.0.apk > DJKATALOG-Android-v3.0.0.apk.sha256)
+      - name: Match previous production signing fingerprint
+        env:
+          EXPECTED_SHA256: ${{ secrets.DJAPP_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPECTED_SHA256"
+          ACTUAL=$("$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs output/DJKATALOG-Android-v3.0.0.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          EXPECTED=$(printf '%s' "$EXPECTED_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          test "$ACTUAL" = "$EXPECTED" || { echo "Signing certificate fingerprint mismatch"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: DJKATALOG-Android-v3.0.0-SIGNED
