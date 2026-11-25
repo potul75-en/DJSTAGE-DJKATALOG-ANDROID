@@ -1,5 +1,9 @@
 name: DJKATALOG Android - signed production APK
 on:
+  push:
+    branches: [feature/android-v3-0-0]
+    paths:
+      - '.github/workflows/build-production-signed.yml'
   workflow_dispatch:
 permissions:
   contents: read
