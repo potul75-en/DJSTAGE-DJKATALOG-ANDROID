@@ -6,8 +6,8 @@ android {
     applicationId 'pl.djstage.djkatalog'
     minSdk 26
     targetSdk 35
-    versionCode 303
-    versionName '3.0.FINAL'
+    versionCode 310
+    versionName '3.1.0 FINAL'
   }
   buildTypes {
     debug { applicationIdSuffix '.test'; versionNameSuffix '-TEST' }
